@@ -47,7 +47,6 @@ def output_analysis(output):
 
 	return round(average_age), gender, smile, looking_away
 
-
 average_age, gender, smile, looking_away = output_analysis(make_request(filename, API_KEY, ENDPOINT))
 print("Average Age: ", average_age)
 print("Gender Distribution: ", gender)

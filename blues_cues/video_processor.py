@@ -10,6 +10,8 @@ from PIL import ImageGrab
 
 ZOOM = 'Zoom Meeting'
 UPDATE_TIME_SECS = 3
+API_KEY = '385d384953a846119ef795da65630382'
+ENDPOINT = 'https://bc-faces.cognitiveservices.azure.com'
 
 class VideoProcessor():
 	def __init__(self):
@@ -53,7 +55,7 @@ class VideoProcessor():
 			cv2.imwrite('screenshot.jpg', img)
 		return img
 
-	def run(self):
+	def run(self, queue):
 		while True:
 			print("getting image")
 			self.prev_image = self.image
@@ -62,6 +64,14 @@ class VideoProcessor():
 				attendance = self.estimate_camera_on_attendance(self.prev_image, self.image)
 				print(self.estimate_camera_on_attendance(self.prev_image, self.image))
 
+			age, gender, smile, lookaway = face_analysis(self.image)
+
+			title = "Meeting Demographics"
+			content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
+			Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}%\
+			".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], lookaway*100, attendance*100)
+
+			queue.put((title, content))
 			time.sleep(UPDATE_TIME_SECS)
 
 	def estimate_panel_size(self, img, debug=False):
@@ -202,6 +212,49 @@ class VideoProcessor():
 			return naive_estimate
 
 		return min(count / total, 1)
+
+
+	def azure_request(filename, API_KEY, ENDPOINT):
+		PATH_TO_API = '/face/v1.0/detect'
+
+		params = {
+		    'returnFaceId': 'true',
+		    'returnFaceLandmarks': 'false',
+		    'returnFaceAttributes': 'age,gender,headPose,smile,emotion',
+		}
+
+		headers = {'Ocp-Apim-Subscription-Key': API_KEY, 
+				   'Content-Type': 'application/octet-stream'}
+
+		with open(filename, 'rb') as f:
+		    img_data = f.read()
+
+		response = requests.post(ENDPOINT + PATH_TO_API, data=img_data, params=params, headers=headers)
+		output = response.json()
+
+		return output
+
+	def face_analysis(img):
+		azure_request(img, API_KEY, ENDPOINT)
+		average_age = 0
+		gender = {"male": 0, "female": 0}
+		smile = {"Yes": 0, "No": 0}
+		num_faces = len(output)
+		looking_away = 0
+
+		for face in output:
+			average_age += face['faceAttributes']['age'] / num_faces
+			gender[face['faceAttributes']['gender']] += 1
+			if face['faceAttributes']['smile'] > 0.5:
+				smile["Yes"] += 1
+			else:
+				smile["No"] += 1
+
+			if abs(face['faceAttributes']['headPose']['pitch']) > 15 or abs(face['faceAttributes']['headPose']['yaw']) > 15:
+				looking_away += 1 / num_faces
+
+		return round(average_age), gender, smile, looking_away
+
 
 if __name__ == "__main__":
 	vp = VideoProcessor()
