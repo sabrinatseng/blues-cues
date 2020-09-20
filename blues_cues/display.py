@@ -42,7 +42,7 @@ class Application():
             (title, data_item) = self.queue.get(0)
             self.data[title] = data_item
             self.labels[title][1].configure(text=data_item)
-        
+
         self.root.after(UPDATE_RATE_MS, self.process_queue_msg)
 
     def on_close(self):
