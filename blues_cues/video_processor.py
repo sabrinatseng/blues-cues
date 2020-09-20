@@ -26,9 +26,7 @@ class VideoProcessor():
 		window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID)
 		for i in range(len(window_list)):
 			window = window_list[i]
-
 			try:
-				print(window)
 				if ZOOM in window['kCGWindowName']:
 					self.zoom_window_info = (i, window['kCGWindowBounds'])
 					break
@@ -261,14 +259,21 @@ class VideoProcessor():
 				age, gender, smile, lookaway, emotions = self.face_analysis(self.image)
 
 				title = "Meeting Demographics"
-				content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
-				Participants Not Smiling: {}\nMeeting Sentiment:\n\tAnger: {}%, Contempt: {}%, Disgust: {}%, Fear: {}%, Happiness\
-				: {}%, Neutral: {}%, Sadness: {}%, Surprise: {}%\nParticipants Looking Away: {}%, Cameras On: {}% \
-				".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], emotions['anger']*100, emotions['contempt']*100, \
-				emotions['disgust']*100, emotions['fear']*100, emotions['happiness']*100, emotions['neutral']*100, emotions['sadness']*100, \
-				emotions['surprise']*100, lookaway*100, attendance*100)
-
+				content = ("Average Age: {}\nGender Distribution: {} M, {} F\nParticipants Smiling: {}, "
+				"Participants Not Smiling: {}").format(age, gender["male"], gender["female"], smile["Yes"], smile["No"])
 				queue.put((title, content))
+
+				title = "Meeting Sentiment"
+				content = ("Anger: {:.1f}%\nContempt: {:.1f}%\nDisgust: {:.1f}%\nFear: {:.1f}%\nHappiness: {:.1f}%\n"
+				"Neutral: {:.1f}%\nSadness: {:.1f}%\nSurprise: {:.1f}%").format(
+					emotions['anger']*100, emotions['contempt']*100, emotions['disgust']*100, emotions['fear']*100, \
+					emotions['happiness']*100, emotions['neutral']*100, emotions['sadness']*100, emotions['surprise']*100)
+				queue.put((title, content))
+
+				title = "Audience Engagement"
+				content = ("Participants Looking Away: {:.1f}%\nCameras On: {:.1f}%").format(lookaway*100, attendance*100)
+				queue.put((title, content))
+
 			time.sleep(UPDATE_TIME_SECS)
 
 
