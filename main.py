@@ -1,4 +1,4 @@
-from blues_cues import display, video_processor
+from blues_cues import display, video_processor, audio_processor
 import queue
 import threading
 
@@ -7,6 +7,12 @@ def run_vp(vp, queue):
     vp: Video Processor
     """
     vp.run(queue)
+
+def run_ap(ap, queue):
+    """
+    ap: Audio Processor
+    """
+    ap.run(queue)
 
 def main():
     """
@@ -17,6 +23,10 @@ def main():
     vp = video_processor.VideoProcessor()
     vp_thread = threading.Thread(target=run_vp, args=(vp, q))
     vp_thread.start()
+
+    ap = audio_processor.AudioProcessor()
+    ap_thread = threading.Thread(target=run_ap, args=(ap, q))
+    ap_thread.start()
     app.run()
     # probably a loop here
     # get audio input

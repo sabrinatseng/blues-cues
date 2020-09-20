@@ -28,12 +28,11 @@ class VideoProcessor():
 			window = window_list[i]
 
 			try:
-				print(window)
 				if ZOOM in window['kCGWindowName']:
 					self.zoom_window_info = (i, window['kCGWindowBounds'])
 					break
 			except:
-				print(sys.exc_info()[0])
+				pass
 		else: 
 			# if we reach the end of the loop, no Zoom window
 			raise Exception("Could not find Zoom window.")
