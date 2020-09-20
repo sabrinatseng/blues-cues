@@ -5,6 +5,7 @@ import time
 from collections import OrderedDict
 
 UPDATE_RATE_MS = 3000   # update every 3s
+LOADING_STR = "Loading..."
 
 class Application():
     def __init__(self, data, queue):
@@ -31,17 +32,18 @@ class Application():
         for title, data in self.data.items():
             # create 2 labels, one for title, one for data
             self.labels[title] = [
-                tk.Label(self.root, text=title),
-                tk.Label(self.root, text=data)
+                tk.Label(self.root, text=title, wraplength=200, font="-weight bold", pady=2),
+                tk.Label(self.root, text=LOADING_STR, wraplength=200, anchor="w", pady=2, justify="left")
             ]
             self.labels[title][0].pack()
-            self.labels[title][1].pack()
-    
+            self.labels[title][1].pack(anchor='w')
+
     def process_queue_msg(self):
         while self.queue.qsize():
             (title, data_item) = self.queue.get(0)
             self.data[title] = data_item
             self.labels[title][1].configure(text=data_item)
+            self.labels[title][1].pack(anchor='w')
 
         self.root.after(UPDATE_RATE_MS, self.process_queue_msg)
 
