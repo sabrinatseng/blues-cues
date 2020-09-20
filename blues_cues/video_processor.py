@@ -213,7 +213,7 @@ class VideoProcessor():
 		return output
 
 	def face_analysis(img):
-		azure_request(img, API_KEY, ENDPOINT)
+		output = azure_request(img, API_KEY, ENDPOINT)
 		average_age = 0
 		gender = {"male": 0, "female": 0}
 		smile = {"Yes": 0, "No": 0}
@@ -245,7 +245,7 @@ class VideoProcessor():
 
 			title = "Meeting Demographics"
 			content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
-			Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}%\
+			Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}% \
 			".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], lookaway*100, attendance*100)
 
 			queue.put((title, content))
