@@ -8,6 +8,7 @@ import requests
 import imutils
 from Quartz import CGWindowListCopyWindowInfo, kCGNullWindowID, kCGWindowListOptionAll
 from PIL import ImageGrab
+import sys
 
 ZOOM = 'Zoom Meeting'
 API_KEY = '385d384953a846119ef795da65630382'
@@ -25,12 +26,14 @@ class VideoProcessor():
 		window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID)
 		for i in range(len(window_list)):
 			window = window_list[i]
+
 			try:
+				print(window)
 				if ZOOM in window['kCGWindowName']:
 					self.zoom_window_info = (i, window['kCGWindowBounds'])
 					break
 			except:
-				pass
+				print(sys.exc_info()[0])
 		else: 
 			# if we reach the end of the loop, no Zoom window
 			raise Exception("Could not find Zoom window.")
@@ -212,6 +215,14 @@ class VideoProcessor():
 
 		return output
 
+	def emotion_analysis(self, individual_emotions):
+		total_emotions = {}
+		emotion_keys = individual_emotions[0].keys()
+		for emotion in emotion_keys:
+			total_emotions[emotion] = sum([d[emotion] for d in individual_emotions]) / len(individual_emotions)
+
+		return total_emotions
+
 	def face_analysis(self, img):
 		output = self.azure_request(img, API_KEY, ENDPOINT)
 		average_age = 0
@@ -219,6 +230,7 @@ class VideoProcessor():
 		smile = {"Yes": 0, "No": 0}
 		num_faces = len(output)
 		looking_away = 0
+		emotions = []
 
 		for face in output:
 			average_age += face['faceAttributes']['age'] / num_faces
@@ -231,7 +243,12 @@ class VideoProcessor():
 			if abs(face['faceAttributes']['headPose']['pitch']) > 15 or abs(face['faceAttributes']['headPose']['yaw']) > 15:
 				looking_away += 1 / num_faces
 
-		return round(average_age), gender, smile, looking_away
+			emotions.append(face['faceAttributes']['emotion'])
+
+		if len(emotions) == 0:
+			emotions = [{"anger": 0, "contempt": 0, "disgust": 0, "fear": 0, "happiness": 0, "neutral": 0, "sadness": 0, "surprise": 0}]
+
+		return round(average_age), gender, smile, looking_away, self.emotion_analysis(emotions)
 
 	def run(self, queue):
 		while True:
@@ -241,12 +258,15 @@ class VideoProcessor():
 			if self.prev_image is not None:
 				attendance = self.estimate_camera_on_attendance(self.prev_image, self.image)
 
-				age, gender, smile, lookaway = self.face_analysis(self.image)
+				age, gender, smile, lookaway, emotions = self.face_analysis(self.image)
 
 				title = "Meeting Demographics"
 				content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
-				Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}% \
-				".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], lookaway*100, attendance*100)
+				Participants Not Smiling: {}\nMeeting Sentiment:\n\tAnger: {}%, Contempt: {}%, Disgust: {}%, Fear: {}%, Happiness\
+				: {}%, Neutral: {}%, Sadness: {}%, Surprise: {}%\nParticipants Looking Away: {}%, Cameras On: {}% \
+				".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], emotions['anger']*100, emotions['contempt']*100, \
+				emotions['disgust']*100, emotions['fear']*100, emotions['happiness']*100, emotions['neutral']*100, emotions['sadness']*100, \
+				emotions['surprise']*100, lookaway*100, attendance*100)
 
 				queue.put((title, content))
 			time.sleep(UPDATE_TIME_SECS)

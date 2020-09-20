@@ -34,6 +34,8 @@ def output_analysis(output):
 	num_faces = len(output)
 	looking_away = 0
 
+	emotions = []
+
 	for face in output:
 		average_age += face['faceAttributes']['age'] / num_faces
 		gender[face['faceAttributes']['gender']] += 1
@@ -45,10 +47,23 @@ def output_analysis(output):
 		if abs(face['faceAttributes']['headPose']['pitch']) > 15 or abs(face['faceAttributes']['headPose']['yaw']) > 15:
 			looking_away += 1 / num_faces
 
-	return round(average_age), gender, smile, looking_away
+		emotions.append(face['faceAttributes']['emotion'])
 
-average_age, gender, smile, looking_away = output_analysis(make_request(filename, API_KEY, ENDPOINT))
+	return round(average_age), gender, smile, looking_away, emotion_analysis(emotions)
+
+def emotion_analysis(emotions):
+	total_emotions = {}
+	emotion_keys = emotions[0].keys()
+	for emotion in emotion_keys:
+		total_emotions[emotion] = sum([d[emotion] for d in emotions]) / len(emotions)
+
+	return total_emotions
+
+
+
+average_age, gender, smile, looking_away, emotions = output_analysis(make_request(filename, API_KEY, ENDPOINT))
 print("Average Age: ", average_age)
 print("Gender Distribution: ", gender)
 print("Smiles: ", smile)
 print("Looking Away (%): ", looking_away*100)
+print(emotions)
