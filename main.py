@@ -1,6 +1,12 @@
-from blues_cues import display
+from blues_cues import display, video_processor
 import queue
 import threading
+
+def run_vp(vp, queue):
+    """
+    vp: Video Processor
+    """
+    vp.run(queue)
 
 def main():
     """

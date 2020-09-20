@@ -9,15 +9,16 @@ from Quartz import CGWindowListCopyWindowInfo, kCGNullWindowID, kCGWindowListOpt
 from PIL import ImageGrab
 
 ZOOM = 'Zoom Meeting'
-UPDATE_TIME_SECS = 3
 API_KEY = '385d384953a846119ef795da65630382'
 ENDPOINT = 'https://bc-faces.cognitiveservices.azure.com'
+UPDATE_TIME_SECS = 2
 
 class VideoProcessor():
 	def __init__(self):
 		self.update_zoom_window_info()
 		self.image = None
 		self.prev_image = None
+		self.est_width, self.est_height = None, None
 
 	def update_zoom_window_info(self):
 		window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID)
@@ -53,26 +54,8 @@ class VideoProcessor():
 		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 		if debug:
 			cv2.imwrite('screenshot.jpg', img)
+			
 		return img
-
-	def run(self, queue):
-		while True:
-			print("getting image")
-			self.prev_image = self.image
-			self.image = self.screenshot_zoom()
-			if self.prev_image is not None:
-				attendance = self.estimate_camera_on_attendance(self.prev_image, self.image)
-				print(self.estimate_camera_on_attendance(self.prev_image, self.image))
-
-			age, gender, smile, lookaway = face_analysis(self.image)
-
-			title = "Meeting Demographics"
-			content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
-			Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}%\
-			".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], lookaway*100, attendance*100)
-
-			queue.put((title, content))
-			time.sleep(UPDATE_TIME_SECS)
 
 	def estimate_panel_size(self, img, debug=False):
 		"""
@@ -158,11 +141,6 @@ class VideoProcessor():
 		
 	# 	return len(found)
 
-	def get_absolute_diff(self, img1, img2, debug=False):
-		"""
-		Get abs diff between the two images
-		"""
-
 	def estimate_camera_on_attendance(self, img1, img2, debug=False):
 		"""
 		Estimate the number of people who have their camera on.
@@ -176,7 +154,8 @@ class VideoProcessor():
 		if (img1.shape[:2] != img2.shape[:2]):
 			return
 
-		est_width, est_height = self.estimate_panel_size(img1)
+		if self.est_width is None or self.est_height is None:
+			self.est_width, self.est_height = self.estimate_panel_size(img1)
 		
 		# get absolute diff between images
 		diff = img1.copy()
@@ -198,17 +177,16 @@ class VideoProcessor():
 		rectangles = list(map(cv2.boundingRect, contours))
 		count = 0
 		for x, y, w, h in rectangles:
-			if w*h < est_width*est_height:
+			if w*h < self.est_width*self.est_height:
 				continue
-			count += (w*h) // (est_width*est_height)
+			count += (w*h) // (self.est_width*self.est_height)
 			if debug:
 				cv2.rectangle(img2, (x,y), (x+w,y+h), (0, 255, 0), 10)
 		if debug:
 			cv2.imwrite('rectangles.jpg', img2)
-		total = (img1.shape[1] // est_height) * (img1.shape[0] // est_width)
+		total = (img1.shape[1] // self.est_height) * (img1.shape[0] // self.est_width)
 		
 		if count == 0:
-			print("Fallback for on screen attendance")
 			return naive_estimate
 
 		return min(count / total, 1)
@@ -255,10 +233,29 @@ class VideoProcessor():
 
 		return round(average_age), gender, smile, looking_away
 
+	def run(self, queue):
+		while True:
+			self.prev_image = self.image
+			self.image = self.screenshot_zoom()
+			if self.prev_image is not None:
+				attendance = self.estimate_camera_on_attendance(self.prev_image, self.image)
+				print(self.estimate_camera_on_attendance(self.prev_image, self.image))
+
+			age, gender, smile, lookaway = face_analysis(self.image)
+
+			title = "Meeting Demographics"
+			content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
+			Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}%\
+			".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], lookaway*100, attendance*100)
+
+			queue.put((title, content))
+			time.sleep(UPDATE_TIME_SECS)
+
+
 
 if __name__ == "__main__":
 	vp = VideoProcessor()
-	vp.run()
+	# vp.run()
 
 #### EAST text detector
 ## Code inspired by:

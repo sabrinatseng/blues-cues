@@ -4,7 +4,7 @@ import queue
 import time
 from collections import OrderedDict
 
-UPDATE_RATE_MS = 5000   # update every 5s
+UPDATE_RATE_MS = 3000   # update every 3s
 
 class Application():
     def __init__(self, data, queue):
