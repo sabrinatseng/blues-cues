@@ -13,7 +13,10 @@ def main():
     Runs Blue's Cues alongside a Zoom call.
     """
     q = queue.Queue()
-    app = display.Application({"test_data_1": "1"}, q)
+    app = display.Application({"Meeting Demographics": ""}, q)
+    vp = video_processor.VideoProcessor()
+    vp_thread = threading.Thread(target=run_vp, args=(vp, q))
+    vp_thread.start()
     app.run()
     # probably a loop here
     # get audio input

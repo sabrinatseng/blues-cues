@@ -4,6 +4,7 @@ import cv2
 import pytesseract  # for reading text
 import time
 import numpy as np
+import requests
 import imutils
 from Quartz import CGWindowListCopyWindowInfo, kCGNullWindowID, kCGWindowListOptionAll
 from PIL import ImageGrab
@@ -40,7 +41,7 @@ class VideoProcessor():
 		window = CGWindowListCopyWindowInfo(kCGWindowListOptionAll, kCGNullWindowID)[id]
 		if 'kCGWindowName' not in window or ZOOM not in window['kCGWindowName']:
 			# Window ID has changed (or closed), find it again
-			self.zoom_window_info = self.update_zoom_window_info()
+			self.update_zoom_window_info()
 
 		# multiply everything by 2 because of Mac pixel doubling
 		x = 2*bounds['X']
@@ -192,7 +193,7 @@ class VideoProcessor():
 		return min(count / total, 1)
 
 
-	def azure_request(filename, API_KEY, ENDPOINT):
+	def azure_request(self, img, API_KEY, ENDPOINT):
 		PATH_TO_API = '/face/v1.0/detect'
 
 		params = {
@@ -204,16 +205,15 @@ class VideoProcessor():
 		headers = {'Ocp-Apim-Subscription-Key': API_KEY, 
 				   'Content-Type': 'application/octet-stream'}
 
-		with open(filename, 'rb') as f:
-		    img_data = f.read()
+		is_success, img_encoded = cv2.imencode(".png", img)
 
-		response = requests.post(ENDPOINT + PATH_TO_API, data=img_data, params=params, headers=headers)
+		response = requests.post(ENDPOINT + PATH_TO_API, data=img_encoded.tobytes(), params=params, headers=headers)
 		output = response.json()
 
 		return output
 
-	def face_analysis(img):
-		output = azure_request(img, API_KEY, ENDPOINT)
+	def face_analysis(self, img):
+		output = self.azure_request(img, API_KEY, ENDPOINT)
 		average_age = 0
 		gender = {"male": 0, "female": 0}
 		smile = {"Yes": 0, "No": 0}
@@ -235,20 +235,20 @@ class VideoProcessor():
 
 	def run(self, queue):
 		while True:
+			print("video processor iteration")
 			self.prev_image = self.image
 			self.image = self.screenshot_zoom()
 			if self.prev_image is not None:
 				attendance = self.estimate_camera_on_attendance(self.prev_image, self.image)
-				print(self.estimate_camera_on_attendance(self.prev_image, self.image))
 
-			age, gender, smile, lookaway = face_analysis(self.image)
+				age, gender, smile, lookaway = self.face_analysis(self.image)
 
-			title = "Meeting Demographics"
-			content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
-			Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}% \
-			".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], lookaway*100, attendance*100)
+				title = "Meeting Demographics"
+				content = "Average Age: {}\nGender Distribution: {} male, {} female\nParticipants Smiling: {}, \
+				Participants Not Smiling: {}\nParticipants Looking Away: {}%, Cameras On: {}% \
+				".format(age, gender["male"], gender["female"], smile["Yes"], smile["No"], lookaway*100, attendance*100)
 
-			queue.put((title, content))
+				queue.put((title, content))
 			time.sleep(UPDATE_TIME_SECS)
 
 
